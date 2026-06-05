@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>颈部律动 - Neck Rhythm</title>
+<style>
+/* ============================================ */
+/* RESET & BASE                                 */
+/* ============================================ */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a14;--cyan:#00e5ff;--magenta:#ff2d95;--gold:#ffd740;
+  --lime:#69f0ae;--purple:#b388ff;--orange:#ff9100;--white:#f0f0f0;
+  --gray:#666;--radius:12px;
+  --font-game:'Orbitron','Microsoft YaHei',sans-serif;
+  --font-ui:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+}
+body{background:var(--bg);color:var(--white);font-family:var(--font-ui);overflow:hidden;width:100vw;height:100vh;user-select:none;-webkit-user-select:none}
+canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
+
+/* Overlays */
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;transition:opacity 0.5s,visibility 0.5s;pointer-events:all}
+.overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+
+/* Loading */
+#loading-screen{background:var(--bg);z-index:100}
+.loader-ring{width:60px;height:60px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--cyan);border-radius:50%;animation:spin 1s linear infinite}
+.loading-text{margin-top:20px;color:var(--gray);font-family:var(--font-game);font-size:14px;letter-spacing:4px}
+
+/* Start Screen */
+#start-screen{background:rgba(10,10,20,.95);backdrop-filter:blur(20px)}
+.game-title{font-family:var(--font-game);font-size:clamp(32px,6vw,56px);font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--magenta),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px;letter-spacing:4px;text-align:center}
+.game-subtitle{color:var(--gray);font-size:14px;letter-spacing:6px;margin-bottom:28px;text-align:center}
+
+/* Selectors */
+.select-group{margin-bottom:22px;text-align:center}
+.select-label{font-size:11px;color:var(--gray);letter-spacing:3px;margin-bottom:8px}
+.select-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.sel-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius);padding:14px 20px;cursor:pointer;transition:all .3s;text-align:center;min-width:90px}
+.sel-card:hover{background:rgba(255,255,255,.08);border-color:var(--cyan);transform:translateY(-2px)}
+.sel-card.selected{border-color:var(--cyan);background:rgba(0,229,255,.1);box-shadow:0 0 20px rgba(0,229,255,.2)}
+.sel-icon{font-size:26px;margin-bottom:2px}
+.sel-name{font-family:var(--font-game);font-size:12px;letter-spacing:1px}
+.sel-desc{font-size:10px;color:var(--gray);margin-top:2px}
+
+.btn{background:transparent;border:2px solid var(--cyan);color:var(--cyan);font-family:var(--font-game);font-size:16px;letter-spacing:4px;padding:14px 48px;border-radius:var(--radius);cursor:pointer;transition:all .3s;text-transform:uppercase}
+.btn:hover{background:var(--cyan);color:var(--bg);box-shadow:0 0 30px rgba(0,229,255,.4)}
+.btn.primary{background:var(--cyan);color:var(--bg);border:none}
+.btn.primary:hover{background:#00f0ff;box-shadow:0 0 40px rgba(0,229,255,.6)}
+.start-hint{margin-top:18px;color:var(--gray);font-size:11px;letter-spacing:1px;max-width:380px;text-align:center;line-height:1.6}
+
+/* Calibration */
+#calibration-screen{background:rgba(10,10,20,.95);backdrop-filter:blur(20px)}
+.calib-title{font-family:var(--font-game);font-size:22px;letter-spacing:3px;margin-bottom:8px}
+.calib-desc{color:var(--gray);font-size:13px;margin-bottom:6px;text-align:center;line-height:1.8}
+.calib-status{color:var(--cyan);font-size:14px;margin-top:8px;text-align:center}
+.calib-progress{width:200px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:16px;overflow:hidden}
+.calib-bar{height:100%;background:var(--cyan);border-radius:2px;width:0%;transition:width .15s linear}
+.calib-camera{width:240px;height:180px;border-radius:var(--radius);overflow:hidden;border:2px solid rgba(255,255,255,.1);margin-bottom:12px;position:relative;background:#000}
+.calib-camera video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;width:100%;pointer-events:none;z-index:5;padding:20px;display:flex;justify-content:space-between;align-items:flex-start}
+#btn-back{position:fixed;top:16px;right:16px;z-index:7;pointer-events:all;font-family:var(--font-game);font-size:12px;letter-spacing:2px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:8px 16px;border-radius:20px;cursor:pointer;transition:all .3s}
+#btn-back:hover{background:rgba(255,45,149,.15);border-color:var(--magenta);color:var(--magenta)}
+#btn-back.hidden{display:none}
+.hud-left,.hud-right{display:flex;flex-direction:column;gap:8px}
+.hud-center{text-align:center}
+.hud-score{font-family:var(--font-game);font-size:28px;font-weight:700}
+.hud-combo{font-family:var(--font-game);font-size:18px;color:var(--gold)}
+.hud-mechanic{font-size:10px;color:var(--gray);letter-spacing:2px;margin-top:2px}
+.hud-accuracy{font-size:14px;color:var(--gray)}
+.hud-label{font-size:10px;color:var(--gray);letter-spacing:2px;text-transform:uppercase}
+.progress-bar{width:200px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:var(--cyan);border-radius:2px;transition:width .3s}
+
+/* Combo popup */
+.combo-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-game);font-size:32px;font-weight:900;pointer-events:none;z-index:6;opacity:0}
+.combo-popup.show{animation:comboShow .8s ease-out forwards}
+
+/* Judgement */
+.judgement{position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-game);font-size:24px;font-weight:700;pointer-events:none;z-index:6;opacity:0}
+.judgement.show{animation:judgeShow .6s ease-out forwards}
+
+/* Results */
+#results-screen{background:rgba(10,10,20,.95);backdrop-filter:blur(20px)}
+.results-title{font-family:var(--font-game);font-size:28px;letter-spacing:4px;margin-bottom:8px}
+.grade{font-size:72px;font-family:var(--font-game);font-weight:900;margin:16px 0}
+.grade-s{color:var(--gold);text-shadow:0 0 30px rgba(255,215,64,.6)}
+.grade-a{color:var(--lime);text-shadow:0 0 30px rgba(105,240,174,.6)}
+.grade-b{color:var(--cyan);text-shadow:0 0 30px rgba(0,229,255,.6)}
+.grade-c{color:var(--purple)}
+.grade-d{color:var(--orange)}
+.grade-f{color:var(--magenta)}
+.results-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;margin:20px 0}
+.stat-label{font-size:12px;color:var(--gray);letter-spacing:2px}
+.stat-value{font-family:var(--font-game);font-size:20px}
+.stat-value.highlight{color:var(--gold)}
+.btn-row{display:flex;gap:12px;margin-top:16px}
+
+/* Camera PIP */
+#cam-pip{position:fixed;bottom:20px;right:20px;width:200px;height:150px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.2);z-index:5;opacity:.9;transition:opacity .3s;background:#000;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+#cam-pip video{width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}
+#cam-pip.hidden{opacity:0;pointer-events:none}
+
+/* Keyboard hint */
+#kb-hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:6px;opacity:0;transition:opacity .5s;pointer-events:none}
+#kb-hint.visible{opacity:.45}
+.kb-key{width:32px;height:32px;border:1px solid rgba(255,255,255,.25);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.5);font-family:var(--font-game)}
+
+/* Countdown */
+.countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-game);font-size:80px;font-weight:900;color:var(--cyan);z-index:8;pointer-events:none;text-shadow:0 0 40px rgba(0,229,255,.6);animation:countPop .8s ease-out forwards}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes comboShow{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
+@keyframes judgeShow{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}40%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+@keyframes countPop{0%{opacity:0;transform:translate(-50%,-50%) scale(2)}30%{opacity:1;transform:translate(-50%,-50%) scale(.9)}100%{opacity:0;transform:translate(-50%,-50%) scale(.7)}}
+
+@media(max-width:600px){
+  .select-row{flex-direction:column;align-items:center}
+  .sel-card{min-width:140px}
+  .hud-score{font-size:20px}
+  #cam-pip{width:120px;height:90px;bottom:8px;right:8px}
+  .progress-bar{width:120px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+<div id="cam-pip" class="hidden"><video id="pip-video" autoplay playsinline></video></div>
+
+<!-- Loading (also used during camera init) -->
+<div id="loading-screen" class="overlay">
+  <div class="loader-ring"></div>
+  <div class="loading-text" id="loading-msg">LOADING</div>
+</div>
+
+<!-- Start Screen -->
+<div id="start-screen" class="overlay hidden">
+  <div class="game-title">颈部律动</div>
+  <div class="game-subtitle">NECK RHYTHM</div>
+
+  <div class="select-group">
+    <div class="select-label">游戏模式</div>
+    <div class="select-row" id="mode-select">
+      <div class="sel-card selected" data-mode="camera"><div class="sel-icon">🎥</div><div class="sel-name">摄像头</div></div>
+      <div class="sel-card" data-mode="keyboard"><div class="sel-icon">⌨️</div><div class="sel-name">键盘</div></div>
+    </div>
+  </div>
+
+  <div class="select-group">
+    <div class="select-label">玩法机制</div>
+    <div class="select-row" id="mechanic-select">
+      <div class="sel-card selected" data-mechanic="stretch"><div class="sel-icon">🤸</div><div class="sel-name">都来都来</div><div class="sel-desc">进圈·同方向吃掉</div></div>
+      <div class="sel-card" data-mechanic="rebel"><div class="sel-icon">😈</div><div class="sel-name">别来沾边</div><div class="sel-desc">进圈前·反方向挡住</div></div>
+    </div>
+  </div>
+
+  <div class="select-group">
+    <div class="select-label">难度</div>
+    <div class="select-row" id="diff-select">
+      <div class="sel-card selected" data-diff="easy"><div class="sel-name">🌱 轻松</div><div class="sel-desc">慢速·少量</div></div>
+      <div class="sel-card" data-diff="normal"><div class="sel-name">🎵 标准</div><div class="sel-desc">中速·适中</div></div>
+      <div class="sel-card" data-diff="hard"><div class="sel-name">🔥 挑战</div><div class="sel-desc">快速·密集</div></div>
+    </div>
+  </div>
+
+  <button class="btn primary" id="btn-start">开始游戏</button>
+  <div class="start-hint" id="start-hint">箭头进入圆圈 → 头部/按键做出对应方向 → 得分<br>不需要卡点，箭头在圈内即可 ✌️</div>
+</div>
+
+<!-- Calibration -->
+<div id="calibration-screen" class="overlay hidden">
+  <div class="calib-camera"><video id="calib-video" autoplay playsinline></video></div>
+  <div class="calib-title" id="calib-title">正在初始化摄像头...</div>
+  <div class="calib-desc" id="calib-desc">请允许摄像头权限</div>
+  <div class="calib-status" id="calib-status"></div>
+  <div class="calib-progress"><div class="calib-bar" id="calib-bar"></div></div>
+  <button class="btn" id="btn-skip-calib" style="margin-top:16px;font-size:12px;padding:8px 24px">跳过，用键盘玩</button>
+</div>
+
+<!-- Back button (during gameplay) -->
+<button id="btn-back" class="hidden">返回</button>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <div class="hud-label">得分</div>
+    <div class="hud-score" id="score-display">0</div>
+  </div>
+  <div class="hud-center">
+    <div class="hud-combo" id="combo-display"></div>
+    <div class="hud-mechanic" id="mechanic-display"></div>
+    <div class="hud-accuracy" id="accuracy-display"></div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-label">进度</div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="combo-popup" id="combo-popup"></div>
+<div class="judgement" id="judgement"></div>
+
+<div id="kb-hint">
+  <div class="kb-key">W</div><div class="kb-key">A</div><div class="kb-key">S</div><div class="kb-key">D</div>
+  <div class="kb-key" style="margin-left:4px">↑</div><div class="kb-key">←</div><div class="kb-key">↓</div><div class="kb-key">→</div>
+</div>
+
+<div id="results-screen" class="overlay hidden">
+  <div class="results-title">演奏结束</div>
+  <div class="grade" id="grade-display">-</div>
+  <div class="results-stats">
+    <div><div class="stat-label">总分</div><div class="stat-value highlight" id="stat-score">0</div></div>
+    <div><div class="stat-label">最大连击</div><div class="stat-value" id="stat-maxcombo">0</div></div>
+    <div><div class="stat-label">命中率</div><div class="stat-value" id="stat-accuracy">0%</div></div>
+    <div><div class="stat-label">颈部运动</div><div class="stat-value" id="stat-moves">0次</div></div>
+    <div><div class="stat-label">Perfect</div><div class="stat-value" id="stat-perfect" style="color:#ffd740">0</div></div>
+    <div><div class="stat-label">Great</div><div class="stat-value" id="stat-great" style="color:#69f0ae">0</div></div>
+    <div><div class="stat-label">Good</div><div class="stat-value" id="stat-good" style="color:#00e5ff">0</div></div>
+    <div><div class="stat-label">Miss</div><div class="stat-value" id="stat-miss" style="color:#ff2d95">0</div></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn primary" id="btn-retry">再来一局</button>
+    <button class="btn" id="btn-menu">返回菜单</button>
+  </div>
+</div>
+
+<div id="countdown-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/face_mesh.js" crossorigin="anonymous"></script>
+<script>
+// ============================================
+// CONFIGURATION
+// ============================================
+const DIFFICULTIES = {
+  easy:   { bpm:95,  noteDensity:0.38, travelBeats:5, zoneRadius:130, diagonalChance:0,    songDuration:100 },
+  normal: { bpm:115, noteDensity:0.55, travelBeats:4, zoneRadius:110, diagonalChance:0.08, songDuration:90  },
+  hard:   { bpm:135, noteDensity:0.75, travelBeats:3, zoneRadius:90,  diagonalChance:0.20, songDuration:80  },
+};
+
+const DIRS = [
+  { id:0, name:'up',    angle:-Math.PI/2, color:'#00e5ff', label:'↑' },
+  { id:1, name:'right', angle:0,          color:'#ff2d95', label:'→' },
+  { id:2, name:'down',  angle:Math.PI/2,  color:'#ffd740', label:'↓' },
+  { id:3, name:'left',  angle:Math.PI,    color:'#b388ff', label:'←' },
+];
+const DIAGONALS = [
+  { id:4, name:'upright',   angle:-Math.PI/4, color:'#00ff88', label:'↗' },
+  { id:5, name:'downright', angle:Math.PI/4,  color:'#ff9100', label:'↘' },
+  { id:6, name:'downleft',  angle:3*Math.PI/4,color:'#ff4488', label:'↙' },
+  { id:7, name:'upleft',    angle:-3*Math.PI/4,color:'#44ff88', label:'↖' },
+];
+// Opposite direction mapping for "一身反骨" mode
+const OPPOSITE = { 0:2, 1:3, 2:0, 3:1, 4:6, 5:7, 6:4, 7:5 };
+
+// ============================================
+// AUDIO ENGINE
+// ============================================
+class AudioEngine {
+  constructor() {
+    this.ctx = null; this.masterGain = null;
+    this.bpm = 120; this.startTime = 0;
+    this.currentBeat = 0; this.scheduledNodes = [];
+    this._running = false; this._started = false;
+  }
+  get beatInterval() { return 60 / this.bpm; }
+
+  async init() {
+    if (this.ctx) { try { this.ctx.close(); } catch(e) {} }
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.25;
+    this.masterGain.connect(this.ctx.destination);
+    this._started = false;
+  }
+
+  start() {
+    this._running = true;
+    this._started = true;
+    this.startTime = this.ctx.currentTime;
+    this.currentBeat = 0;
+    this._scheduleBeats();
+  }
+
+  _scheduleBeats() {
+    const lookAhead = 2;
+    const schedule = () => {
+      if (!this._running) return;
+      const ct = this.ctx.currentTime - this.startTime;
+      const bt = this.currentBeat * this.beatInterval;
+      if (bt < ct + lookAhead) {
+        this._playBeat(this.currentBeat, this.startTime + bt);
+        this.currentBeat++;
+      }
+      this.scheduledNodes.push(setTimeout(schedule, 100));
+    };
+    schedule();
+  }
+
+  _playBeat(beat, time) {
+    const pos = beat % 4, bar = Math.floor(beat / 4);
+    if (pos === 0 || pos === 2) this._kick(time, pos === 0 ? 0.7 : 0.5);
+    if (pos === 1 || pos === 3) this._snare(time, 0.4);
+    this._hihat(time, 0.12);
+    this._hihat(time + this.beatInterval / 2, 0.08);
+    if (pos === 0 || pos === 2) this._bass(time, this._bassNote(bar, pos), 0.25);
+  }
+
+  _kick(time, vol) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(150, time); o.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+    g.gain.setValueAtTime(vol, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+    o.connect(g); g.connect(this.masterGain); o.start(time); o.stop(time + 0.3);
+  }
+
+  _snare(time, vol) {
+    const sr = this.ctx.sampleRate, len = sr * 0.12;
+    const buf = this.ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sr * 0.04));
+    const n = this.ctx.createBufferSource(); n.buffer = buf;
+    const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3000; f.Q.value = 0.5;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(vol, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+    n.connect(f); f.connect(g); g.connect(this.masterGain); n.start(time); n.stop(time + 0.12);
+  }
+
+  _hihat(time, vol) {
+    const sr = this.ctx.sampleRate, len = sr * 0.04;
+    const buf = this.ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sr * 0.008));
+    const n = this.ctx.createBufferSource(); n.buffer = buf;
+    const f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 8000;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(vol, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+    n.connect(f); f.connect(g); g.connect(this.masterGain); n.start(time); n.stop(time + 0.04);
+  }
+
+  _bass(time, freq, vol) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, time); g.gain.exponentialRampToValueAtTime(0.001, time + this.beatInterval * 0.8);
+    const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 400;
+    o.connect(f); f.connect(g); g.connect(this.masterGain); o.start(time); o.stop(time + this.beatInterval);
+  }
+
+  _bassNote(bar, pos) {
+    const notes = [65.41, 73.42, 82.41, 98.00, 110.00, 130.81, 146.83, 164.81];
+    const p = [0, 3, 2, 4, 0, 3, 5, 4, 0, 2, 3, 1, 0, 3, 4, 2];
+    return notes[p[(bar * 4 + pos) % p.length]];
+  }
+
+  getCurrentTime() {
+    if (!this.ctx || !this._started) return 0;
+    return this.ctx.currentTime - this.startTime;
+  }
+
+  getBeatTime() {
+    if (!this.ctx || !this._started) return 0;
+    return (this.ctx.currentTime - this.startTime) / this.beatInterval;
+  }
+
+  stop() { this._running = false; this.scheduledNodes.forEach(t => clearTimeout(t)); this.scheduledNodes = []; }
+  destroy() { this.stop(); this._started = false; if (this.ctx) { try { this.ctx.close(); } catch(e) {} this.ctx = null; } }
+}
+
+// ============================================
+// PARTICLE SYSTEM
+// ============================================
+class Particle {
+  constructor(x, y, color, speed, life) {
+    this.x = x; this.y = y;
+    const a = Math.random() * Math.PI * 2, s = speed * (0.3 + Math.random() * 0.7);
+    this.vx = Math.cos(a) * s; this.vy = Math.sin(a) * s;
+    this.color = color; this.life = life; this.maxLife = life;
+    this.size = 2 + Math.random() * 4;
+  }
+  update(dt) { this.x += this.vx * dt; this.y += this.vy * dt; this.life -= dt; this.vx *= 0.97; this.vy *= 0.97; }
+  draw(ctx) {
+    const a = Math.max(0, this.life / this.maxLife);
+    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color; ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.size * a, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  get dead() { return this.life <= 0; }
+}
+
+class ParticleSystem {
+  constructor() { this.particles = []; }
+  emit(x, y, color, count = 15, speed = 300, life = 0.5) {
+    for (let i = 0; i < count; i++) this.particles.push(new Particle(x, y, color, speed, life));
+  }
+  update(dt) { for (let i = this.particles.length - 1; i >= 0; i--) { this.particles[i].update(dt); if (this.particles[i].dead) this.particles.splice(i, 1); } }
+  draw(ctx) { this.particles.forEach(p => p.draw(ctx)); }
+  clear() { this.particles = []; }
+}
+
+// ============================================
+// BEAT MAP GENERATOR
+// ============================================
+class BeatMapGenerator {
+  constructor(difficulty) {
+    this.diff = difficulty;
+    this.beatInterval = 60 / difficulty.bpm;
+    this.totalBeats = Math.floor(difficulty.songDuration / this.beatInterval);
+  }
+
+  generate() {
+    const notes = [];
+    const allDirs = [...DIRS];
+    if (this.diff.diagonalChance > 0) allDirs.push(...DIAGONALS);
+    let lastDir = -1, lastBeat = -999;
+    const minGap = 0.4;
+
+    for (let beat = 4; beat < this.totalBeats - 3; beat++) {
+      const pos = beat % 4, section = Math.floor(beat / 16);
+      let prob = this.diff.noteDensity;
+      if (pos === 0 || pos === 2) prob *= 1.3;
+      else if (pos === 1 || pos === 3) prob *= 0.8;
+
+      if (Math.random() < prob && (beat - lastBeat) >= minGap) {
+        const dir = this._pick(allDirs, lastDir);
+        notes.push({ beat, direction: dir, isDiagonal: dir.id >= 4 });
+        lastDir = dir.id; lastBeat = beat;
+      }
+
+      if (Math.random() < prob * 0.22 && (beat + 0.5 - lastBeat) >= minGap) {
+        const dir = this._pick(allDirs, lastDir);
+        notes.push({ beat: beat + 0.5, direction: dir, isDiagonal: dir.id >= 4 });
+        lastDir = dir.id; lastBeat = beat + 0.5;
+      }
+
+      // Rapid sequences only on hard
+      if (this.diff.bpm >= 130 && section % 2 === 1 && pos === 1 && Math.random() < 0.45) {
+        for (let i = 0; i < 3; i++) {
+          const rb = beat + i * 0.33;
+          if (rb - lastBeat >= 0.3) {
+            const dir = this._pick(allDirs, lastDir);
+            notes.push({ beat: rb, direction: dir, isDiagonal: dir.id >= 4 });
+            lastDir = dir.id; lastBeat = rb;
+          }
+        }
+      }
+    }
+    return notes.sort((a, b) => a.beat - b.beat);
+  }
+
+  _pick(allDirs, lastDir) {
+    let pool = allDirs;
+    if (lastDir >= 0 && Math.random() < 0.55) pool = allDirs.filter(d => d.id !== lastDir);
+    if (Math.random() > this.diff.diagonalChance * 2) {
+      const cards = pool.filter(d => d.id < 4);
+      if (cards.length > 0) pool = cards;
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+}
+
+// ============================================
+// GAME CLASS
+// ============================================
+class Game {
+  constructor(canvas, audio, particles) {
+    this.canvas = canvas; this.ctx = canvas.getContext('2d');
+    this.audio = audio; this.particles = particles;
+
+    this.notes = []; this.activeNotes = [];
+    this.zoneRadius = 110; this.travelBeats = 4;
+    this.detectedDirection = -1;
+    this.mechanic = 'stretch'; // 'stretch' or 'rebel'
+
+    this.score = 0; this.combo = 0; this.maxCombo = 0;
+    this.totalHits = 0; this.perfects = 0; this.greats = 0; this.goods = 0; this.misses = 0;
+    this.totalMoves = 0; this.totalNotes = 0;
+
+    this.state = 'idle';
+    this.countdownValue = 3; this.countdownTimer = 0;
+    this.playStartTime = 0; // track when play actually started
+
+    this.cx = 0; this.cy = 0; this.targetRadius = 60;
+    this.noteSize = 48; this.maxDist = 0; this.beatPulse = 0;
+    this.noteIndex = 0;
+
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    this.canvas.width = window.innerWidth * window.devicePixelRatio;
+    this.canvas.height = window.innerHeight * window.devicePixelRatio;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    this.cx = window.innerWidth / 2; this.cy = window.innerHeight / 2;
+    this.maxDist = Math.min(window.innerWidth, window.innerHeight) * 0.48;
+  }
+
+  start(difficulty, mechanic) {
+    this.state = 'countdown';
+    this.countdownValue = 3; this.countdownTimer = 0;
+    this.diff = difficulty;
+    this.zoneRadius = difficulty.zoneRadius;
+    this.travelBeats = difficulty.travelBeats;
+    this.mechanic = mechanic;
+    this.playStartTime = -1;
+
+    const gen = new BeatMapGenerator(difficulty);
+    this.notes = gen.generate();
+    this.totalNotes = this.notes.length;
+    this.noteIndex = 0; this.activeNotes = [];
+    this.particles.clear();
+
+    this.score = 0; this.combo = 0; this.maxCombo = 0;
+    this.totalHits = 0; this.perfects = 0; this.greats = 0; this.goods = 0; this.misses = 0;
+    this.totalMoves = 0;
+
+    this.audio.bpm = difficulty.bpm;
+    this.resize();
+    this.updateUI();
+  }
+
+  update(dt, headDirection) {
+    this.detectedDirection = headDirection;
+
+    if (this.state === 'countdown') {
+      this.countdownTimer += dt;
+      const newVal = 3 - Math.floor(this.countdownTimer);
+      if (newVal !== this.countdownValue && newVal >= 0) {
+        this.countdownValue = newVal;
+        this._showCountdown(newVal === 0 ? 'GO!' : String(newVal));
+      }
+      if (this.countdownTimer >= 3) {
+        this.state = 'playing';
+        this.playStartTime = performance.now() / 1000;
+        this.audio.start();
+      }
+      return;
+    }
+
+    if (this.state !== 'playing') return;
+
+    const audioTime = this.audio.getCurrentTime();
+    const travelTime = this.travelBeats * (60 / this.audio.bpm);
+
+    // Spawn notes
+    const spawnBeat = this.audio.getBeatTime() + this.travelBeats + 0.5;
+    while (this.noteIndex < this.notes.length && this.notes[this.noteIndex].beat < spawnBeat) {
+      const n = this.notes[this.noteIndex];
+      this.activeNotes.push({
+        ...n, spawnTime: audioTime, hit: false, missed: false, inZone: false,
+        entryTime: 0,
+        spawnX: this.cx + Math.cos(n.direction.angle) * this.maxDist,
+        spawnY: this.cy + Math.sin(n.direction.angle) * this.maxDist,
+      });
+      this.noteIndex++;
+    }
+
+    // Update notes
+    for (const note of this.activeNotes) {
+      const elapsed = audioTime - note.spawnTime;
+      note.progress = elapsed / travelTime;
+      note.x = note.spawnX + (this.cx - note.spawnX) * note.progress;
+      note.y = note.spawnY + (this.cy - note.spawnY) * note.progress;
+      note.distToCenter = Math.hypot(note.x - this.cx, note.y - this.cy);
+
+      const wasInZone = note.inZone;
+      note.inZone = note.distToCenter <= this.zoneRadius;
+
+      // When note first enters zone
+      if (!wasInZone && note.inZone && !note.hit) {
+        note.entryTime = audioTime;
+
+        if (this.mechanic === 'rebel') {
+          // "别来沾边": check OPPOSITE direction RIGHT NOW at zone boundary
+          if (headDirection >= 0 && note.direction.id === (OPPOSITE[headDirection] ?? -1)) {
+            // Blocked! Head was opposite when arrow reached the circle
+            note.hit = true;
+            note.blockedAtEntry = true;
+            this._onHit(note);
+          } else {
+            // Failed to block — immediate miss
+            note.missed = true;
+            this._onMiss(note);
+          }
+        }
+      }
+
+      // Note passed through zone (only for 都来都来, rebel notes already handled)
+      if (wasInZone && !note.inZone && !note.hit && !note.missed && note.progress > 0.5) {
+        note.missed = true; this._onMiss(note);
+      }
+      // Safety
+      if (!note.hit && !note.missed && note.progress > 1.5) {
+        note.missed = true; this._onMiss(note);
+      }
+    }
+
+    // Hit detection for 都来都来: SAME direction, any time in zone
+    if (headDirection >= 0 && this.mechanic === 'stretch') {
+      const candidates = this.activeNotes.filter(n => {
+        if (n.hit || n.missed || !n.inZone) return false;
+        return n.direction.id === headDirection;
+      });
+
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => a.distToCenter - b.distToCenter);
+        candidates[0].hit = true;
+        this._onHit(candidates[0]);
+      }
+    }
+
+    // Cleanup
+    this.activeNotes = this.activeNotes.filter(n => {
+      if (n.missed || n.hit) return n.progress < 1.5;
+      return true;
+    });
+
+    this.particles.update(dt);
+    this.beatPulse = Math.max(0, this.beatPulse - dt * 3);
+
+    // Song end — but only after at least 5 seconds of play
+    if (this.playStartTime > 0 && audioTime >= 5 && audioTime >= this.diff.songDuration) {
+      this.state = 'finished';
+      this.audio.stop();
+    }
+
+    this.updateUI();
+  }
+
+  _onHit(note) {
+    let judgement, points, color;
+
+    if (this.mechanic === 'rebel') {
+      // "别来沾边": blocked at boundary — always a perfect block
+      judgement = '完美格挡!'; points = 350; color = '#ffd740';
+      this.perfects++;
+      this.particles.emit(note.x, note.y, color, 30, 500, 0.7);
+    } else {
+      // "都来都来": arrow entered → same direction → eat — score by distance to center
+      const ratio = note.distToCenter / this.zoneRadius;
+      if (ratio < 0.25) { judgement = 'Perfect!'; points = 300; color = '#ffd740'; this.perfects++; this.particles.emit(note.x, note.y, color, 25, 400, 0.6); }
+      else if (ratio < 0.55) { judgement = 'Great!'; points = 200; color = '#69f0ae'; this.greats++; this.particles.emit(note.x, note.y, color, 18, 300, 0.5); }
+      else { judgement = 'Good'; points = 100; color = '#00e5ff'; this.goods++; this.particles.emit(note.x, note.y, color, 10, 200, 0.4); }
+    }
+
+    this.combo++; this.totalHits++; this.totalMoves++;
+    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+    const mult = Math.min(Math.floor(this.combo / 10) + 1, 4);
+    this.score += points * mult;
+    this.beatPulse = 0.3;
+    this._showJudgement(judgement, color);
+    if (this.combo > 0 && this.combo % 20 === 0) this._showComboPopup(`${this.combo} COMBO!`);
+  }
+
+  _onMiss(note) {
+    this.combo = 0; this.misses++;
+    this.particles.emit(note.x, note.y, '#ff2d95', 8, 100, 0.3);
+    this._showJudgement('Miss', '#ff2d95');
+  }
+
+  _showCountdown(text) {
+    const el = document.getElementById('countdown-container');
+    const div = document.createElement('div'); div.className = 'countdown'; div.textContent = text;
+    el.appendChild(div);
+    setTimeout(() => div.remove(), 800);
+  }
+
+  _showJudgement(text, color) {
+    const el = document.getElementById('judgement');
+    el.textContent = text; el.style.color = color;
+    el.className = 'judgement'; el.offsetHeight; el.className = 'judgement show';
+  }
+
+  _showComboPopup(text) {
+    const el = document.getElementById('combo-popup');
+    el.textContent = text; el.className = 'combo-popup'; el.offsetHeight; el.className = 'combo-popup show';
+  }
+
+  updateUI() {
+    document.getElementById('score-display').textContent = this.score;
+    const mult = Math.min(Math.floor(this.combo / 10) + 1, 4);
+    document.getElementById('combo-display').textContent = this.combo > 1 ? `${this.combo}x · x${mult}` : '';
+    const total = this.totalHits + this.misses;
+    document.getElementById('accuracy-display').textContent = total > 0 ? `${Math.round((this.totalHits / total) * 100)}%` : '';
+    document.getElementById('mechanic-display').textContent = this.mechanic === 'stretch' ? '🤸 都来都来' : '😈 别来沾边';
+    // stretch=都来都来(同方向吃), rebel=别来沾边(反方向挡)
+    const progress = Math.min(100, (this.audio.getCurrentTime() / this.diff.songDuration) * 100);
+    document.getElementById('progress-fill').style.width = `${progress}%`;
+  }
+
+  draw() {
+    const ctx = this.ctx, w = window.innerWidth, h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    // Background grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.lineWidth = 1;
+    for (let r = 80; r < this.maxDist; r += 80) { ctx.beginPath(); ctx.arc(this.cx, this.cy, r, 0, Math.PI * 2); ctx.stroke(); }
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+      ctx.beginPath(); ctx.moveTo(this.cx + Math.cos(a) * 80, this.cy + Math.sin(a) * 80);
+      ctx.lineTo(this.cx + Math.cos(a) * this.maxDist, this.cy + Math.sin(a) * this.maxDist); ctx.stroke();
+    }
+
+    // Ambient dots
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    const t = performance.now() / 1000;
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2 + t * 0.08;
+      const dist = this.maxDist * 0.65 + Math.sin(t * 0.7 + i) * 40;
+      ctx.beginPath(); ctx.arc(this.cx + Math.cos(angle) * dist, this.cy + Math.sin(angle) * dist, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // "别来沾边" warning zone (outer ring — block arrows BEFORE they enter!)
+    if (this.mechanic === 'rebel') {
+      const warnR = this.zoneRadius * 1.4;
+      ctx.setLineDash([4, 12]);
+      ctx.strokeStyle = 'rgba(255,45,149,0.18)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(this.cx, this.cy, warnR, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,45,149,0.25)';
+      ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('挡住它们!', this.cx + warnR * 0.7, this.cy - 4);
+    }
+
+    // Hit zone ring
+    const zr = this.zoneRadius, pulse = 1 + this.beatPulse * 0.15;
+    for (let i = 4; i >= 0; i--) {
+      const r = zr + i * 12, alpha = 0.06 - i * 0.012;
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`; ctx.lineWidth = 1 + i * 0.5;
+      ctx.beginPath(); ctx.arc(this.cx, this.cy, r, 0, Math.PI * 2); ctx.stroke();
+    }
+    const zoneColor = this.mechanic === 'rebel' ? 'rgba(255,45,149,0.2)' : 'rgba(255,255,255,0.12)';
+    ctx.setLineDash([8, 20]);
+    ctx.strokeStyle = zoneColor; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(this.cx, this.cy, zr * pulse, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Inner target ring
+    const tr = this.targetRadius * pulse;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(this.cx, this.cy, tr, 0, Math.PI * 2); ctx.stroke();
+
+    // Direction labels with active highlight
+    DIRS.forEach(dir => {
+      const ix = this.cx + Math.cos(dir.angle) * (tr + 12);
+      const iy = this.cy + Math.sin(dir.angle) * (tr + 12);
+      const isActive = this.mechanic === 'rebel'
+        ? this.detectedDirection === OPPOSITE[dir.id]
+        : this.detectedDirection === dir.id;
+
+      if (isActive) {
+        ctx.save(); ctx.shadowColor = dir.color; ctx.shadowBlur = 20;
+        ctx.fillStyle = dir.color; ctx.font = 'bold 16px sans-serif';
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.font = '14px sans-serif';
+      }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(dir.label, ix, iy);
+      if (isActive) ctx.restore();
+    });
+
+    // Active direction arc
+    if (this.detectedDirection >= 0 && this.detectedDirection < 4) {
+      const d = DIRS[this.detectedDirection];
+      ctx.save(); ctx.strokeStyle = d.color; ctx.lineWidth = 3;
+      ctx.shadowColor = d.color; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.arc(this.cx, this.cy, tr, d.angle - 0.3, d.angle + 0.3); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Inner glow
+    const grad = ctx.createRadialGradient(this.cx, this.cy, tr * 0.6, this.cx, this.cy, tr);
+    grad.addColorStop(0, 'rgba(255,255,255,0.04)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(this.cx, this.cy, tr, 0, Math.PI * 2); ctx.fill();
+
+    // Notes
+    this.activeNotes.forEach(note => { if (!note.missed && !note.hit) this._drawNote(ctx, note); });
+    this.particles.draw(ctx);
+  }
+
+  _drawNote(ctx, note) {
+    const scale = 0.55 + note.progress * 0.45;
+    const alpha = Math.min(1, note.progress * 2.5);
+    const dir = note.direction, size = this.noteSize * scale;
+    const inZoneGlow = note.inZone && !note.hit;
+
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.translate(note.x, note.y); ctx.rotate(dir.angle + Math.PI);
+
+    ctx.shadowColor = dir.color; ctx.shadowBlur = inZoneGlow ? 30 : 16;
+    ctx.fillStyle = dir.color;
+    ctx.beginPath();
+    ctx.moveTo(size * 0.5, 0); ctx.lineTo(-size * 0.3, -size * 0.35);
+    ctx.lineTo(-size * 0.1, 0); ctx.lineTo(-size * 0.3, size * 0.35);
+    ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(size * 0.35, 0); ctx.lineTo(-size * 0.15, -size * 0.2);
+    ctx.lineTo(-size * 0.02, 0); ctx.lineTo(-size * 0.15, size * 0.2);
+    ctx.closePath(); ctx.fill();
+
+    if (inZoneGlow) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.65, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    ctx.restore();
+
+    // Trail
+    if (note.progress > 0.08) {
+      ctx.save(); ctx.globalAlpha = alpha * 0.25;
+      const tx = note.spawnX + (this.cx - note.spawnX) * Math.max(0, note.progress - 0.06);
+      const ty = note.spawnY + (this.cy - note.spawnY) * Math.max(0, note.progress - 0.06);
+      ctx.fillStyle = dir.color; ctx.shadowColor = dir.color; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.arc(tx, ty, size * 0.18, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  getResults() {
+    const total = this.perfects + this.greats + this.goods + this.misses;
+    if (total === 0) return null;
+    const acc = this.totalHits / total;
+    let grade, gradeClass;
+    if (acc >= 0.95) { grade = 'S'; gradeClass = 'grade-s'; }
+    else if (acc >= 0.85) { grade = 'A'; gradeClass = 'grade-a'; }
+    else if (acc >= 0.70) { grade = 'B'; gradeClass = 'grade-b'; }
+    else if (acc >= 0.50) { grade = 'C'; gradeClass = 'grade-c'; }
+    else if (acc >= 0.30) { grade = 'D'; gradeClass = 'grade-d'; }
+    else { grade = 'F'; gradeClass = 'grade-f'; }
+    return { score: this.score, maxCombo: this.maxCombo, accuracy: Math.round(acc * 100), totalMoves: this.totalMoves, perfects: this.perfects, greats: this.greats, goods: this.goods, misses: this.misses, grade, gradeClass };
+  }
+}
+
+// ============================================
+// HEAD TRACKER
+// ============================================
+class HeadTracker {
+  constructor() {
+    this.faceMesh = null; this.videoEl = null; this.stream = null;
+    this.neutralOffset = { x: 0, y: 0 };
+    this.currentDirection = -1;
+    this.directionTimestamp = 0; this.lastFaceTime = 0;
+    this.isCalibrated = false; this.isRunning = false;
+    this._calibResolve = null; this._animFrameId = null;
+    this._calibTimer = null;
+  }
+
+  async init(videoEl) {
+    this.stop();
+    this.videoEl = videoEl;
+
+    document.getElementById('calib-title').textContent = '正在加载追踪模型...';
+    document.getElementById('calib-desc').textContent = '首次需下载约3MB';
+    document.getElementById('calib-status').textContent = '⏳ 下载中...';
+
+    const FaceMeshCtor = window.FaceMesh;
+    if (!FaceMeshCtor) throw new Error('MediaPipe 加载失败，请检查网络连接');
+
+    this.faceMesh = new FaceMeshCtor({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`
+    });
+
+    this.faceMesh.setOptions({
+      maxNumFaces: 1, refineLandmarks: true,
+      minDetectionConfidence: 0.55, minTrackingConfidence: 0.5,
+    });
+
+    document.getElementById('calib-status').textContent = '📷 请求摄像头...';
+    // LOWER RESOLUTION for faster processing
+    this.stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 320, height: 240 }
+    });
+    this.videoEl.srcObject = this.stream;
+    await this.videoEl.play();
+
+    this.faceMesh.onResults((results) => this._onResults(results));
+    this._startProcessing();
+
+    document.getElementById('calib-title').textContent = '校准中...';
+    document.getElementById('calib-desc').textContent = '面对摄像头，保持自然坐姿\n头部保持不动';
+    document.getElementById('calib-status').textContent = '';
+    return this.stream;
+  }
+
+  _startProcessing() {
+    this.isRunning = true;
+    const process = async () => {
+      if (!this.isRunning || !this.faceMesh) return;
+      if (this.videoEl && this.videoEl.readyState >= 2) {
+        try { await this.faceMesh.send({ image: this.videoEl }); } catch(e) {}
+      }
+      if (this.isRunning) this._animFrameId = requestAnimationFrame(process);
+    };
+    process();
+  }
+
+  _computeOffset(lm) {
+    try {
+      if (!lm || !lm[1] || !lm[33] || !lm[362]) return null;
+      const leftEye = lm[33], rightEye = lm[362], nose = lm[1];
+      const eyeCx = (leftEye.x + rightEye.x) / 2, eyeCy = (leftEye.y + rightEye.y) / 2;
+      const eyeDist = Math.hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y);
+      const scale = eyeDist > 0.001 ? 1 / eyeDist : 1;
+      return { x: (nose.x - eyeCx) * scale, y: (nose.y - eyeCy) * scale };
+    } catch(e) { return null; }
+  }
+
+  _onResults(results) {
+    const now = performance.now();
+
+    if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+      if (now - this.lastFaceTime > 350) this.currentDirection = -1;
+      return;
+    }
+
+    this.lastFaceTime = now;
+    const offset = this._computeOffset(results.multiFaceLandmarks[0]);
+    if (!offset) return;
+    if (!this.isCalibrated) return;
+
+    const dx = offset.x - this.neutralOffset.x;
+    const dy = offset.y - this.neutralOffset.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > 0.020) {
+      // User perspective: turn head right = direction right
+      const angle = Math.atan2(dy, dx);
+      let bestDir = -1, bestDiff = Infinity;
+      for (const d of DIRS) {
+        let diff = Math.abs(angle - d.angle);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        if (diff < Math.PI / 3 && diff < bestDiff) { bestDiff = diff; bestDir = d.id; }
+      }
+      if (bestDir >= 0) { this.currentDirection = bestDir; this.directionTimestamp = now; }
+    } else {
+      this.neutralOffset.x += dx * 0.01;
+      this.neutralOffset.y += dy * 0.01;
+      if (now - this.directionTimestamp > 200) this.currentDirection = -1;
+    }
+  }
+
+  async calibrate(duration = 1000) {
+    this._calibResolve = null; this.isCalibrated = false;
+    const MAX_TIME = 3000; // hard timeout 3 seconds
+
+    return new Promise((resolve) => {
+      this._calibResolve = resolve;
+      const samples = [], startTime = Date.now();
+      const maxSamples = 20;
+      let finished = false;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        if (this._calibTimer) { clearTimeout(this._calibTimer); this._calibTimer = null; }
+        this.neutralOffset = samples.length > 0
+          ? { x: samples.reduce((s,v) => s+v.x,0) / samples.length, y: samples.reduce((s,v) => s+v.y,0) / samples.length }
+          : { x: 0, y: 0 };
+        this.isCalibrated = true;
+        const bar = document.getElementById('calib-bar');
+        if (bar) bar.style.width = '100%';
+        if (this._calibResolve) { this._calibResolve(); this._calibResolve = null; }
+      };
+
+      // Hard timeout: force finish after MAX_TIME no matter what
+      this._calibTimer = setTimeout(() => {
+        finish();
+      }, MAX_TIME);
+
+      const tick = () => {
+        if (finished) return;
+        const elapsed = Date.now() - startTime;
+        const bar = document.getElementById('calib-bar');
+        if (bar) bar.style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
+        if (samples.length >= maxSamples || elapsed >= duration) {
+          finish();
+        } else {
+          requestAnimationFrame(tick);
+        }
+      };
+
+      const orig = this._onResults;
+      this._onResults = (results) => {
+        try {
+          if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+            const offset = this._computeOffset(results.multiFaceLandmarks[0]);
+            if (offset) samples.push(offset);
+          }
+        } catch(e) {}
+      };
+      tick();
+
+      // Restore original after MAX_TIME
+      setTimeout(() => { this._onResults = orig; }, MAX_TIME + 500);
+    });
+  }
+
+  skipCalibration() {
+    this.isCalibrated = true;
+    this.neutralOffset = { x: 0, y: 0 };
+    if (this._calibTimer) { clearTimeout(this._calibTimer); this._calibTimer = null; }
+    if (this._calibResolve) { this._calibResolve(); this._calibResolve = null; }
+  }
+
+  stop() {
+    this.isRunning = false;
+    if (this._animFrameId) { cancelAnimationFrame(this._animFrameId); this._animFrameId = null; }
+    if (this._calibTimer) { clearTimeout(this._calibTimer); this._calibTimer = null; }
+    if (this.faceMesh) { try { this.faceMesh.close(); } catch(e) {} this.faceMesh = null; }
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+    if (this.videoEl && this.videoEl.srcObject) { this.videoEl.srcObject = null; }
+    this.isCalibrated = false; this.currentDirection = -1;
+    if (this._calibResolve) { this._calibResolve(); this._calibResolve = null; }
+  }
+
+  destroy() { this.stop(); }
+}
+
+// ============================================
+// KEYBOARD INPUT (WASD + Arrows)
+// ============================================
+class KeyboardInput {
+  constructor() {
+    this.pressed = new Set();
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','Space'].includes(e.code)) e.preventDefault();
+      this.pressed.add(e.code);
+    });
+    window.addEventListener('keyup', (e) => { this.pressed.delete(e.code); });
+  }
+
+  getDirection() {
+    const up    = this.pressed.has('ArrowUp')    || this.pressed.has('KeyW');
+    const down  = this.pressed.has('ArrowDown')  || this.pressed.has('KeyS');
+    const left  = this.pressed.has('ArrowLeft')  || this.pressed.has('KeyA');
+    const right = this.pressed.has('ArrowRight') || this.pressed.has('KeyD');
+    if (up && !down && !left && !right)   return 0;
+    if (!up && down && !left && !right)   return 2;
+    if (!up && !down && left && !right)   return 3;
+    if (!up && !down && !left && right)   return 1;
+    if (up && right && !down && !left)    return 4;
+    if (down && right && !up && !left)    return 5;
+    if (down && left && !up && !right)    return 6;
+    if (up && left && !down && !right)    return 7;
+    return -1;
+  }
+}
+
+// ============================================
+// UI MANAGER
+// ============================================
+class UIManager {
+  constructor() {
+    this.screens = {
+      loading: document.getElementById('loading-screen'), start: document.getElementById('start-screen'),
+      calibration: document.getElementById('calibration-screen'), hud: document.getElementById('hud'),
+      results: document.getElementById('results-screen'),
+    };
+    this.camPip = document.getElementById('cam-pip');
+    this.kbHint = document.getElementById('kb-hint');
+  }
+  show(name) { Object.values(this.screens).forEach(s => s.classList.add('hidden')); if (this.screens[name]) this.screens[name].classList.remove('hidden'); }
+  showStart() { this.show('start'); this.screens.hud.classList.add('hidden'); this.screens.results.classList.add('hidden'); }
+  showCalibration() { this.show('calibration'); }
+  showGame() { this.screens.loading.classList.add('hidden'); this.screens.calibration.classList.add('hidden'); this.screens.results.classList.add('hidden'); this.screens.hud.classList.remove('hidden'); }
+  showResults(results, isCameraMode) {
+    this.screens.results.classList.remove('hidden'); this.screens.hud.classList.add('hidden');
+    if (!results) return;
+    document.getElementById('stat-score').textContent = results.score.toLocaleString();
+    document.getElementById('stat-maxcombo').textContent = results.maxCombo;
+    document.getElementById('stat-accuracy').textContent = `${results.accuracy}%`;
+    document.getElementById('stat-moves').textContent = isCameraMode ? `${results.totalMoves}次` : '—';
+    document.getElementById('stat-perfect').textContent = results.perfects;
+    document.getElementById('stat-great').textContent = results.greats;
+    document.getElementById('stat-good').textContent = results.goods;
+    document.getElementById('stat-miss').textContent = results.misses;
+    const ge = document.getElementById('grade-display');
+    ge.textContent = results.grade; ge.className = `grade ${results.gradeClass}`;
+  }
+  showCamPip()  { this.camPip.classList.remove('hidden'); }
+  hideCamPip()  { this.camPip.classList.add('hidden'); }
+  showKbHint()  { this.kbHint.classList.add('visible'); }
+  hideKbHint()  { this.kbHint.classList.remove('visible'); }
+  showBackBtn() { document.getElementById('btn-back').classList.remove('hidden'); }
+  hideBackBtn() { document.getElementById('btn-back').classList.add('hidden'); }
+}
+
+// ============================================
+// MAIN APPLICATION
+// ============================================
+class App {
+  constructor() {
+    this.canvas = document.getElementById('game-canvas');
+    this.audio = new AudioEngine();
+    this.particles = new ParticleSystem();
+    this.game = new Game(this.canvas, this.audio, this.particles);
+    this.headTracker = new HeadTracker();
+    this.keyboard = new KeyboardInput();
+    this.ui = new UIManager();
+
+    this.mode = 'camera';
+    this.difficulty = 'easy';
+    this.mechanic = 'stretch';
+    this.cameraActive = false;
+    this.lastFrameTime = 0;
+    this.animFrameId = null;
+    this._starting = false;
+    this._camAborted = false; // set by skip button to abort entire camera flow
+
+    this._setupEvents();
+    this._updateStartHint();
+  }
+
+  _setupEvents() {
+    document.querySelectorAll('#mode-select .sel-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#mode-select .sel-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        this.mode = card.dataset.mode;
+        this._updateStartHint();
+      });
+    });
+
+    document.querySelectorAll('#mechanic-select .sel-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#mechanic-select .sel-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        this.mechanic = card.dataset.mechanic;
+        this._updateStartHint();
+      });
+    });
+
+    document.querySelectorAll('#diff-select .sel-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#diff-select .sel-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        this.difficulty = card.dataset.diff;
+      });
+    });
+
+    document.getElementById('btn-start').addEventListener('click', () => this._startGame());
+    document.getElementById('btn-retry').addEventListener('click', () => this._startGame());
+    document.getElementById('btn-menu').addEventListener('click', () => this._goToMenu());
+    document.getElementById('btn-back').addEventListener('click', () => this._goToMenu());
+
+    // Skip button: abort ENTIRE camera flow, switch to keyboard immediately
+    document.getElementById('btn-skip-calib').addEventListener('click', () => {
+      this._camAborted = true;
+      this.headTracker.skipCalibration();
+      this.headTracker.stop();        // stop any in-progress camera init
+      this.mode = 'keyboard';
+      document.querySelectorAll('#mode-select .sel-card').forEach(c => c.classList.remove('selected'));
+      const kbCard = document.querySelector('#mode-select .sel-card[data-mode="keyboard"]');
+      if (kbCard) kbCard.classList.add('selected');
+    });
+  }
+
+  _updateStartHint() {
+    const hint = document.getElementById('start-hint');
+    const mechText = this.mechanic === 'stretch' ? '🤸 都来都来：箭头进圈→同方向→吃掉' : '😈 别来沾边：箭头到圈边→反方向→挡住(没挡住=Miss)';
+    const modeText = this.mode === 'camera' ? '摄像头追踪头部' : 'WASD / ↑↓←→ 按键';
+    hint.innerHTML = `${mechText}<br>${modeText} · 箭头进圈即可得分 · 无需卡点`;
+  }
+
+  // Wrap a promise with a timeout
+  _withTimeout(promise, ms, msg) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
+    ]);
+  }
+
+  async _startGame() {
+    if (this._starting) return;
+    this._starting = true;
+    this._camAborted = false;
+
+    // Safety: auto-reset _starting after 20s in case flow gets stuck
+    const safetyTimer = setTimeout(() => { this._starting = false; }, 20000);
+
+    // Full cleanup
+    if (this.animFrameId) { cancelAnimationFrame(this.animFrameId); this.animFrameId = null; }
+    this.audio.destroy();
+    this.headTracker.destroy();
+    this.particles.clear();
+    this.cameraActive = false;
+
+    const diff = DIFFICULTIES[this.difficulty] || DIFFICULTIES.easy;
+
+    try {
+      await this.audio.init();
+
+      if (this.mode === 'camera') {
+        this.ui.showCalibration();
+        document.getElementById('calib-title').textContent = '正在初始化摄像头...';
+        document.getElementById('calib-desc').textContent = '请点击浏览器弹窗中的「允许」\n不想用摄像头？点下方按钮或直接拒绝弹窗';
+        document.getElementById('calib-status').textContent = '';
+        document.getElementById('calib-bar').style.width = '0%';
+
+        const calibVideo = document.getElementById('calib-video');
+        const pipVideo = document.getElementById('pip-video');
+
+        try {
+          // Camera init with 6-second timeout
+          const stream = await this._withTimeout(
+            this.headTracker.init(calibVideo),
+            6000, '摄像头初始化超时'
+          );
+
+          // Check if user aborted during init
+          if (this._camAborted) throw new Error('ABORT');
+
+          pipVideo.srcObject = stream;
+          this.cameraActive = true;
+          this.ui.showCamPip();
+
+          // Calibration with 5-second timeout (internally also has 3s hard timeout)
+          if (!this._camAborted) {
+            await this._withTimeout(
+              this.headTracker.calibrate(),
+              5000, '校准超时'
+            );
+          }
+
+          if (this._camAborted) throw new Error('ABORT');
+
+        } catch (camErr) {
+          console.warn('Camera flow ended:', camErr.message);
+          // Clean up camera resources
+          this.headTracker.destroy();
+          this.cameraActive = false;
+          this.ui.hideCamPip();
+
+          if (camErr.message !== 'ABORT') {
+            // Real error — tell user
+            alert('摄像头初始化失败，自动切换到键盘模式。\n' + camErr.message);
+          }
+          // Either way, switch to keyboard for this session
+          this.mode = 'keyboard';
+          document.querySelectorAll('#mode-select .sel-card').forEach(c => c.classList.remove('selected'));
+          const kbCard = document.querySelector('#mode-select .sel-card[data-mode="keyboard"]');
+          if (kbCard) kbCard.classList.add('selected');
+          this._updateStartHint();
+        }
+      }
+
+      // Proceed with whatever mode we ended up with
+      if (this.mode === 'keyboard') {
+        this.ui.hideCamPip();
+        this.ui.showKbHint();
+      }
+
+      this.ui.showGame();
+      this.ui.showBackBtn();
+      this.game.start(diff, this.mechanic);
+
+      this.lastFrameTime = performance.now();
+      this._gameLoop();
+      clearTimeout(safetyTimer);
+      this._starting = false;
+    } catch (err) {
+      clearTimeout(safetyTimer);
+      this._starting = false;
+      console.error('Game start failed:', err);
+      alert('启动失败: ' + err.message + '\n请刷新页面重试。');
+      this.ui.showStart();
+    }
+  }
+
+  _gameLoop() {
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - this.lastFrameTime) / 1000);
+    this.lastFrameTime = now;
+
+    const headDir = this.mode === 'camera' ? this.headTracker.currentDirection : this.keyboard.getDirection();
+    this.game.update(dt, headDir);
+    this.game.draw();
+
+    if (this.game.state === 'finished') {
+      this._onGameEnd();
+      return;
+    }
+
+    this.animFrameId = requestAnimationFrame(() => this._gameLoop());
+  }
+
+  _onGameEnd() {
+    if (this.animFrameId) { cancelAnimationFrame(this.animFrameId); this.animFrameId = null; }
+    this.audio.stop();
+    if (this.cameraActive) this.headTracker.stop();
+    this.ui.hideCamPip();
+    this.ui.hideKbHint();
+    this.ui.hideBackBtn();
+    const results = this.game.getResults();
+    this.ui.showResults(results, this.cameraActive);
+  }
+
+  _goToMenu() {
+    this._starting = false;
+    this._camAborted = true;
+    if (this.animFrameId) { cancelAnimationFrame(this.animFrameId); this.animFrameId = null; }
+    this.audio.destroy();
+    this.headTracker.destroy();
+    this.particles.clear();
+    this.cameraActive = false;
+    this.ui.hideCamPip();
+    this.ui.hideKbHint();
+    this.ui.hideBackBtn();
+    this.ui.showStart();
+  }
+}
+
+// ============================================
+// BOOT
+// ============================================
+window.addEventListener('DOMContentLoaded', () => {
+  new App();
+  document.getElementById('loading-screen').classList.add('hidden');
+  document.getElementById('start-screen').classList.remove('hidden');
+});
+</script>
+</body>
+</html>
