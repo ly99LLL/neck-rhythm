@@ -63,7 +63,7 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
 
 /* HUD */
 #hud{position:fixed;top:0;left:0;width:100%;pointer-events:none;z-index:5;padding:20px;display:flex;justify-content:space-between;align-items:flex-start}
-#btn-back{position:fixed;top:16px;right:16px;z-index:7;pointer-events:all;font-family:var(--font-game);font-size:12px;letter-spacing:2px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:8px 16px;border-radius:20px;cursor:pointer;transition:all .3s}
+#btn-back{position:fixed;bottom:20px;left:20px;z-index:7;pointer-events:all;font-family:var(--font-game);font-size:12px;letter-spacing:2px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:8px 16px;border-radius:20px;cursor:pointer;transition:all .3s}
 #btn-back:hover{background:rgba(255,45,149,.15);border-color:var(--magenta);color:var(--magenta)}
 #btn-back.hidden{display:none}
 .hud-left,.hud-right{display:flex;flex-direction:column;gap:8px}
@@ -927,7 +927,7 @@ class HeadTracker {
 
     if (dist > 0.020) {
       // User perspective: turn head right = direction right
-      const angle = Math.atan2(dy, dx);
+      const angle = Math.atan2(dy, -dx); // negate dx to mirror webcam (screen perspective)
       let bestDir = -1, bestDiff = Infinity;
       for (const d of DIRS) {
         let diff = Math.abs(angle - d.angle);
@@ -1160,9 +1160,14 @@ class App {
 
   _updateStartHint() {
     const hint = document.getElementById('start-hint');
-    const mechText = this.mechanic === 'stretch' ? '🤸 都来都来：箭头进圈→同方向→吃掉' : '😈 别来沾边：箭头到圈边→反方向→挡住(没挡住=Miss)';
+    const mechText = this.mechanic === 'stretch'
+      ? '🤸 都来都来：箭头进圈→脑袋朝箭头方向摆→吃掉(圈内任意时刻)'
+      : '😈 别来沾边：箭头碰圈→脑袋必须反向→挡住(触碰瞬间判定,零容错)';
     const modeText = this.mode === 'camera' ? '摄像头追踪头部' : 'WASD / ↑↓←→ 按键';
-    hint.innerHTML = `${mechText}<br>${modeText} · 箭头进圈即可得分 · 无需卡点`;
+    const tipText = this.mechanic === 'stretch'
+      ? '箭头进圈即可得分 · 无需卡点'
+      : '需提前摆好反向 · 触圈瞬间判定';
+    hint.innerHTML = `${mechText}<br>${modeText} · ${tipText}`;
   }
 
   // Wrap a promise with a timeout
