@@ -572,8 +572,8 @@ class Game {
         note.entryTime = audioTime;
 
         if (this.mechanic === 'rebel') {
-          // "别来沾边": check OPPOSITE direction RIGHT NOW at zone boundary
-          if (headDirection >= 0 && note.direction.id === (OPPOSITE[headDirection] ?? -1)) {
+          // "别来沾边": head same as arrow direction at zone boundary
+          if (headDirection >= 0 && note.direction.id === headDirection) {
             // Blocked! Head was opposite when arrow reached the circle
             note.hit = true;
             note.blockedAtEntry = true;
@@ -596,11 +596,11 @@ class Game {
       }
     }
 
-    // Hit detection for 都来都来: SAME direction, any time in zone
+    // Hit detection for 都来都来: OPPOSITE direction, any time in zone
     if (headDirection >= 0 && this.mechanic === 'stretch') {
       const candidates = this.activeNotes.filter(n => {
         if (n.hit || n.missed || !n.inZone) return false;
-        return n.direction.id === headDirection;
+        return OPPOSITE[n.direction.id] === headDirection;
       });
 
       if (candidates.length > 0) {
@@ -1159,12 +1159,12 @@ class App {
   _updateStartHint() {
     const hint = document.getElementById('start-hint');
     const mechText = this.mechanic === 'stretch'
-      ? '🤸 都来都来：箭头进圈→脑袋朝箭头方向摆→吃掉(圈内任意时刻)'
-      : '😈 别来沾边：箭头碰圈→脑袋必须反向→挡住(触碰瞬间判定,零容错)';
+      ? '🤸 都来都来：箭头进圈→脑袋反向摆→吃掉(圈内任意时刻)'
+      : '😈 别来沾边：箭头碰圈→脑袋同向→挡住(触碰瞬间判定,零容错)';
     const modeText = this.mode === 'camera' ? '摄像头追踪头部' : 'WASD / ↑↓←→ 按键';
     const tipText = this.mechanic === 'stretch'
-      ? '箭头进圈即可得分 · 无需卡点'
-      : '需提前摆好反向 · 触圈瞬间判定';
+      ? '头朝箭头反方向 · 圈内即可'
+      : '需提前摆好同向 · 触圈瞬间判定';
     hint.innerHTML = `${mechText}<br>${modeText} · ${tipText}`;
   }
 
