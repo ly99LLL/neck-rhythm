@@ -745,9 +745,7 @@ class Game {
     DIRS.forEach(dir => {
       const ix = this.cx + Math.cos(dir.angle) * (tr + 12);
       const iy = this.cy + Math.sin(dir.angle) * (tr + 12);
-      const isActive = this.mechanic === 'rebel'
-        ? this.detectedDirection === OPPOSITE[dir.id]
-        : this.detectedDirection === dir.id;
+      const isActive = this.detectedDirection === dir.id;
 
       if (isActive) {
         ctx.save(); ctx.shadowColor = dir.color; ctx.shadowBlur = 20;
