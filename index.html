@@ -924,8 +924,8 @@ class HeadTracker {
     const dist = Math.hypot(dx, dy);
 
     if (dist > 0.020) {
-      // User perspective: turn head right = direction right
-      const angle = Math.atan2(dy, dx);
+      // Negate dx to correct webcam left/right mirror (y axis is fine)
+      const angle = Math.atan2(dy, -dx);
       let bestDir = -1, bestDiff = Infinity;
       for (const d of DIRS) {
         let diff = Math.abs(angle - d.angle);
